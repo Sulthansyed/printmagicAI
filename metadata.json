@@ -1,0 +1,7 @@
+{
+  "name": "PrintMagic AI",
+  "description": "Transform your photos into personalized AI-generated art templates and order them on custom merchandise like T-shirts, mugs, and posters.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
