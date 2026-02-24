@@ -45,16 +45,22 @@ app.post('/api/ipay88-initiate', (req, res) => {
             return res.status(500).json({ error: 'iPay88 credentials not configured.' });
         }
 
-        const amountStr = parseFloat(amount).toFixed(2);
-        const signature = generateIPay88Signature(merchantKey, merchantCode, orderId, amountStr, currency);
+        // Shorten RefNo to stay within iPay88's 20-char limit
+        const refNo = orderId.length > 20 ? orderId.substring(0, 20) : orderId;
 
-        // Determine base URL from request or env
-        const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+        const amountStr = parseFloat(amount).toFixed(2);
+        const signature = generateIPay88Signature(merchantKey, merchantCode, refNo, amountStr, currency);
+
+        // Railway terminates SSL at the proxy, so req.protocol returns 'http'.
+        // We must use https explicitly for the callback URLs.
+        const host = req.get('host');
+        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+        const baseUrl = process.env.BASE_URL || (isLocalhost ? `http://${host}` : `https://${host}`);
 
         const payload = {
             MerchantCode: merchantCode,
-            PaymentId: '',       // Empty = let user choose payment method
-            RefNo: orderId,
+            PaymentId: '0',     // 0 = show all payment methods
+            RefNo: refNo,
             Amount: amountStr,
             Currency: currency,
             ProdDesc: prodDesc || 'PrintMagic AI Merchandise',
@@ -69,7 +75,7 @@ app.post('/api/ipay88-initiate', (req, res) => {
             BackendURL: `${baseUrl}/api/ipay88-backend`,
         };
 
-        console.log('[iPay88 Initiate]', { RefNo: orderId, Amount: amountStr, ResponseURL: payload.ResponseURL });
+        console.log('[iPay88 Initiate] Full payload:', JSON.stringify(payload, null, 2));
         res.json({ payload, paymentUrl: 'https://payment.ipay88.com.my/epayment/payment.asp' });
     } catch (error) {
         console.error('iPay88 Initiation Error:', error);

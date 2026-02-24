@@ -96,6 +96,15 @@ export default function App() {
     }
   }, []);
 
+  // Sync browser URL with app state so iPay88 sees the registered Request URL
+  useEffect(() => {
+    if (currentStep === 'CHECKOUT') {
+      window.history.replaceState({}, '', '/checkout');
+    } else if (window.location.pathname !== '/') {
+      window.history.replaceState({}, '', '/');
+    }
+  }, [currentStep]);
+
   const resetFlow = () => {
     setOrder({
       template: null,
@@ -276,7 +285,7 @@ export default function App() {
         setCurrentStep('SUCCESS');
       } else {
         // --- Real iPay88 flow ---
-        const orderId = `PM-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const orderId = `PM${Date.now()}`;
         const response = await fetch('/api/ipay88-initiate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
