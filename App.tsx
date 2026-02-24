@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { AppState, Template, Product, OrderDetails, ShippingInfo } from './types';
 import {
   Header, HomeView, TemplateSelection, PhotoUploadView,
-  GeneratingView, ProductPreviewView, CheckoutView, SuccessView, CustomChatView
+  GeneratingView, ProductPreviewView, CheckoutView, SuccessView, CustomChatView, PaymentFailedView
 } from './components/Views';
 
-const MOCK_PAYMENT_MODE = true; // Set to false when real iPay88 credentials are configured
+const MOCK_PAYMENT_MODE = false; // Set to true to bypass iPay88 for local testing
 
 // --- Utility Functions ---
 const fileToBase64 = (file: File): Promise<string> => {
@@ -17,7 +17,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const SHIPPING_COST = 5.00;
+const SHIPPING_COST = 0.00; // TODO: restore to 5.00 after testing
 
 function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
   const [storedValue, setStoredValue] = useState<T>(() => {
@@ -77,6 +77,24 @@ export default function App() {
     state: '',
     postcode: ''
   });
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  // Detect iPay88 redirect back (payment=success or payment=failed in URL)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+    if (paymentStatus === 'success') {
+      setOrderPlaced(true);
+      setCurrentStep('SUCCESS');
+      // Clean URL
+      window.history.replaceState({}, '', '/');
+    } else if (paymentStatus === 'failed') {
+      const err = params.get('err') || 'Payment was not completed. Please try again.';
+      setPaymentError(err);
+      setCurrentStep('PAYMENT_FAILED');
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
 
   const resetFlow = () => {
     setOrder({
@@ -257,20 +275,47 @@ export default function App() {
         setOrderPlaced(true);
         setCurrentStep('SUCCESS');
       } else {
-        // --- Real iPay88 flow (enable when credentials are configured) ---
+        // --- Real iPay88 flow ---
         const orderId = `PM-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         const response = await fetch('/api/ipay88-initiate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, amount: order.totalPrice.toString(), currency: 'MYR' })
+          body: JSON.stringify({
+            orderId,
+            amount: order.totalPrice.toString(),
+            currency: 'MYR',
+            prodDesc: `${order.product?.name || 'PrintMagic AI Merch'} — ${order.template?.name || 'Custom Design'}`,
+            userName: shippingInfo.name,
+            userEmail: shippingInfo.email,
+            userContact: shippingInfo.phone,
+            remark: `Ship to: ${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.postcode}`
+          })
         });
+
         if (!response.ok) throw new Error('Failed to initiate payment');
-        // Real iPay88 redirect logic goes here
+
+        const { payload, paymentUrl } = await response.json();
+
+        // Create a hidden form and auto-submit to iPay88
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = paymentUrl;
+        form.style.display = 'none';
+
+        for (const [key, value] of Object.entries(payload)) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = value as string;
+          form.appendChild(input);
+        }
+
+        document.body.appendChild(form);
+        form.submit(); // Redirect to iPay88 payment page
       }
     } catch (err) {
       console.error(err);
       setError("Payment failed. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   };
@@ -310,8 +355,9 @@ export default function App() {
 
         {currentStep === 'GENERATING' && <GeneratingView aiState={aiState} />}
         {currentStep === 'PREVIEW_PRODUCT' && <ProductPreviewView order={order} onRegenerate={handleRegenerate} onSelectProduct={handleProductSelect} />}
-        {currentStep === 'CHECKOUT' && <CheckoutView order={order} shippingInfo={shippingInfo} setShippingInfo={setShippingInfo} onPlaceOrder={handlePlaceOrder} onBack={() => setCurrentStep('PREVIEW_PRODUCT')} isLoading={isLoading} error={error} shippingCost={SHIPPING_COST} />}
+        {currentStep === 'CHECKOUT' && <CheckoutView order={order} shippingInfo={shippingInfo} setShippingInfo={setShippingInfo} onPlaceOrder={handlePlaceOrder} onBack={() => setCurrentStep('PREVIEW_PRODUCT')} isLoading={isLoading} error={error} shippingCost={SHIPPING_COST} isMockMode={MOCK_PAYMENT_MODE} />}
         {currentStep === 'SUCCESS' && <SuccessView resetFlow={resetFlow} />}
+        {currentStep === 'PAYMENT_FAILED' && <PaymentFailedView error={paymentError} onRetry={() => setCurrentStep('CHECKOUT')} resetFlow={resetFlow} />}
       </main>
 
       {/* Mobile Sticky CTA */}

@@ -19,41 +19,61 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true })); // iPay88 POSTs as form-encoded
 
 // Securely initialized on server side
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// --- iPay88 Signature Generation (Malaysia) ---
-app.post('/api/ipay88-signature', (req, res) => {
-    try {
-        const { orderId, amount, currency = 'MYR' } = req.body;
+// --- iPay88 Helper: Generate SHA256 Signature ---
+function generateIPay88Signature(merchantKey, merchantCode, refNo, amount, currency) {
+    // iPay88 format: SHA256(MerchantKey + MerchantCode + RefNo + Amount_no_dots + Currency)
+    const amountForHash = parseFloat(amount).toFixed(2).replace('.', '');
+    const source = merchantKey + merchantCode + refNo + amountForHash + currency;
+    return crypto.createHash('sha256').update(source).digest('base64');
+}
 
-        // Fallback to test credentials if not configured in .env.local yet
-        const merchantCode = process.env.IPAY88_MERCHANT_CODE || 'MOCK_MERCHANT_CODE';
-        const merchantKey = process.env.IPAY88_MERCHANT_KEY || 'MOCK_KEY';
+// --- iPay88: Initiate Payment ---
+// Returns the full form payload for the frontend to auto-submit to iPay88
+app.post('/api/ipay88-initiate', (req, res) => {
+    try {
+        const { orderId, amount, currency = 'MYR', prodDesc, userName, userEmail, userContact, remark = '' } = req.body;
+
+        const merchantCode = process.env.IPAY88_MERCHANT_CODE;
+        const merchantKey = process.env.IPAY88_MERCHANT_KEY;
 
         if (!merchantCode || !merchantKey) {
-            return res.status(500).json({ error: 'iPay88 Merchant credentials missing on backend.' });
+            return res.status(500).json({ error: 'iPay88 credentials not configured.' });
         }
 
-        // iPay88 requires the amount to be a string formatted with exactly 2 decimal places, but then removes the dot for the hash.
-        // Example: "15.00" -> "1500"
         const amountStr = parseFloat(amount).toFixed(2);
-        const amountForHash = amountStr.replace('.', '');
+        const signature = generateIPay88Signature(merchantKey, merchantCode, orderId, amountStr, currency);
 
-        // Hash format required by iPay88: MerchantKey + MerchantCode + RefNo + Amount + Currency
-        const sourceString = merchantKey + merchantCode + orderId + amountForHash + currency;
+        // Determine base URL from request or env
+        const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
 
-        const signature = crypto.createHash('sha256').update(sourceString).digest('base64');
+        const payload = {
+            MerchantCode: merchantCode,
+            PaymentId: '',       // Empty = let user choose payment method
+            RefNo: orderId,
+            Amount: amountStr,
+            Currency: currency,
+            ProdDesc: prodDesc || 'PrintMagic AI Merchandise',
+            UserName: userName || '',
+            UserEmail: userEmail || '',
+            UserContact: userContact || '',
+            Remark: remark,
+            Lang: 'UTF-8',
+            SignatureType: 'SHA256',
+            Signature: signature,
+            ResponseURL: `${baseUrl}/api/ipay88-response`,
+            BackendURL: `${baseUrl}/api/ipay88-backend`,
+        };
 
-        res.json({
-            merchantCode,
-            signature,
-            amountStr
-        });
+        console.log('[iPay88 Initiate]', { RefNo: orderId, Amount: amountStr, ResponseURL: payload.ResponseURL });
+        res.json({ payload, paymentUrl: 'https://payment.ipay88.com.my/epayment/payment.asp' });
     } catch (error) {
-        console.error('Signature Generation Error:', error);
-        res.status(500).json({ error: 'Failed to generate payment signature.' });
+        console.error('iPay88 Initiation Error:', error);
+        res.status(500).json({ error: 'Failed to initiate payment.' });
     }
 });
 
@@ -160,23 +180,55 @@ app.post('/api/generate', async (req, res) => {
     }
 });
 
-// --- Mock iPay88 Callback Endpoints ---
-// These stand in for the real iPay88 response/backend URLs.
-// Replace with real logic once iPay88 credentials are configured.
-
-// Called by iPay88 to redirect the user's browser after payment
+// --- iPay88 Callback: Browser Redirect (Response URL) ---
+// iPay88 POSTs here after user completes payment, then we redirect the browser
 app.post('/api/ipay88-response', (req, res) => {
-    const { Status, RefNo, Amount, Currency } = req.body;
-    console.log('[iPay88 Mock Response]', { Status, RefNo, Amount, Currency });
-    // In production: verify signature, then redirect to success or failure page
-    res.redirect(Status === '1' ? '/?payment=success' : '/?payment=failed');
+    const { Status, RefNo, Amount, Currency, Signature, ErrDesc } = req.body;
+    console.log('[iPay88 Response]', { Status, RefNo, Amount, Currency, ErrDesc });
+
+    // Verify signature
+    const merchantCode = process.env.IPAY88_MERCHANT_CODE;
+    const merchantKey = process.env.IPAY88_MERCHANT_KEY;
+    if (merchantCode && merchantKey) {
+        const expectedSig = generateIPay88Signature(merchantKey, merchantCode, RefNo, Amount, Currency);
+        if (Signature !== expectedSig) {
+            console.error('[iPay88 Response] Signature mismatch!', { expected: expectedSig, received: Signature });
+        }
+    }
+
+    // Status '1' = success, anything else = failed
+    if (Status === '1') {
+        res.redirect('/?payment=success&refno=' + encodeURIComponent(RefNo));
+    } else {
+        res.redirect('/?payment=failed&err=' + encodeURIComponent(ErrDesc || 'Payment was not completed'));
+    }
 });
 
-// Called by iPay88 server-to-server to confirm payment (backend notification)
+// --- iPay88 Callback: Server-to-Server (Backend URL) ---
+// iPay88 calls this independently to confirm payment — must respond 'RECEIVEOK'
 app.post('/api/ipay88-backend', (req, res) => {
-    const { Status, RefNo, Amount, Currency, Signature } = req.body;
-    console.log('[iPay88 Mock Backend]', { Status, RefNo, Amount, Currency, Signature });
-    // In production: verify signature, update order status in DB, then respond 'RECEIVEOK'
+    const { Status, RefNo, Amount, Currency, Signature, TransId, ErrDesc } = req.body;
+    console.log('[iPay88 Backend]', { Status, RefNo, Amount, Currency, TransId, ErrDesc });
+
+    // Verify signature
+    const merchantCode = process.env.IPAY88_MERCHANT_CODE;
+    const merchantKey = process.env.IPAY88_MERCHANT_KEY;
+    if (merchantCode && merchantKey) {
+        const expectedSig = generateIPay88Signature(merchantKey, merchantCode, RefNo, Amount, Currency);
+        if (Signature !== expectedSig) {
+            console.error('[iPay88 Backend] Signature mismatch!');
+            return res.status(400).send('INVALID SIGNATURE');
+        }
+    }
+
+    if (Status === '1') {
+        console.log(`[iPay88 Backend] Payment CONFIRMED for ${RefNo}, TransId: ${TransId}`);
+        // TODO: Update order status in database when DB is added
+    } else {
+        console.log(`[iPay88 Backend] Payment FAILED for ${RefNo}: ${ErrDesc}`);
+    }
+
+    // iPay88 requires this exact response
     res.send('RECEIVEOK');
 });
 

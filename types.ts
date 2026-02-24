@@ -53,7 +53,7 @@ export interface IPay88Payload {
   BackendURL: string;
 }
 
-export type AppState = 'HOME' | 'UPLOAD_PHOTO' | 'SELECT_TEMPLATE' | 'CUSTOM_CHAT' | 'GENERATING' | 'PREVIEW_PRODUCT' | 'CHECKOUT' | 'SUCCESS';
+export type AppState = 'HOME' | 'UPLOAD_PHOTO' | 'SELECT_TEMPLATE' | 'CUSTOM_CHAT' | 'GENERATING' | 'PREVIEW_PRODUCT' | 'CHECKOUT' | 'SUCCESS' | 'PAYMENT_FAILED';
 
 export interface OrderDetails {
   template: Template | null;

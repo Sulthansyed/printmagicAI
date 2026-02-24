@@ -229,7 +229,7 @@ export const PRODUCTS: Product[] = [
   {
     id: 'p1',
     name: 'Premium T-Shirt',
-    price: 59.90,
+    price: 1.00, // TODO: restore to 59.90 after testing
     image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=1000',
     overlayConfig: {
       top: '25%',
@@ -241,7 +241,7 @@ export const PRODUCTS: Product[] = [
   {
     id: 'p2',
     name: 'Ceramic Mug',
-    price: 29.90,
+    price: 1.00, // TODO: restore to 29.90 after testing
     image: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&q=80&w=1000',
     overlayConfig: {
       top: '35%',
@@ -254,7 +254,7 @@ export const PRODUCTS: Product[] = [
   {
     id: 'p3',
     name: 'Phone Case',
-    price: 39.90,
+    price: 1.00, // TODO: restore to 39.90 after testing
     image: 'https://images.unsplash.com/photo-1601593346740-925612772716?auto=format&fit=crop&q=80&w=1000',
     overlayConfig: {
       top: '25%',
@@ -266,7 +266,7 @@ export const PRODUCTS: Product[] = [
   {
     id: 'p4',
     name: 'Wall Canvas',
-    price: 89.90,
+    price: 1.00, // TODO: restore to 89.90 after testing
     image: 'https://images.unsplash.com/photo-1581337204873-ef36aa186caa?auto=format&fit=crop&q=80&w=1000',
     overlayConfig: {
       top: '22%',

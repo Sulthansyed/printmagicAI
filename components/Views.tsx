@@ -336,7 +336,7 @@ export const ProductPreviewView = ({ order, onRegenerate, onSelectProduct }: { o
 );
 
 export const CheckoutView = ({
-    order, shippingInfo, setShippingInfo, onPlaceOrder, onBack, isLoading, error, shippingCost
+    order, shippingInfo, setShippingInfo, onPlaceOrder, onBack, isLoading, error, shippingCost, isMockMode
 }: {
     order: OrderDetails;
     shippingInfo: ShippingInfo;
@@ -346,16 +346,19 @@ export const CheckoutView = ({
     isLoading: boolean;
     error: string | null;
     shippingCost: number;
+    isMockMode?: boolean;
 }) => (
     <div className="max-w-5xl mx-auto px-6 py-12">
         <button onClick={onBack} className="mb-6 text-gray-500 font-semibold flex items-center gap-2 hover:text-black group transition-colors">
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" /> Back to Products
         </button>
-        {/* Mock Payment Mode Banner */}
-        <div className="mb-6 flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 px-5 py-3 rounded-2xl text-sm font-semibold">
-            <span className="bg-amber-400 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest">Mock Mode</span>
-            Payment gateway not yet configured. Checkout will simulate a successful order.
-        </div>
+        {/* Payment Mode Banner */}
+        {isMockMode && (
+            <div className="mb-6 flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 px-5 py-3 rounded-2xl text-sm font-semibold">
+                <span className="bg-amber-400 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest">Mock Mode</span>
+                Payment gateway not yet configured. Checkout will simulate a successful order.
+            </div>
+        )}
         <div className="grid lg:grid-cols-2 gap-16">
             <div className="space-y-8">
                 <h2 className="text-4xl font-black text-gray-900">Review Order</h2>
@@ -447,15 +450,18 @@ export const CheckoutView = ({
                     >
                         {isLoading ? (
                             <RefreshCw className="w-6 h-6 animate-spin" />
-                        ) : (
+                        ) : isMockMode ? (
                             <>Confirm Mock Order <ArrowRight className="w-6 h-6" /></>
+                        ) : (
+                            <><Lock className="w-5 h-5" /> Pay Now — RM {order.totalPrice.toFixed(2)}</>
                         )}
                     </button>
-                    <div className="flex items-center justify-center gap-6 pt-4 grayscale opacity-40">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/b/b5/PayPal.svg" className="h-4" alt="Paypal" />
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg" className="h-6" alt="Stripe" />
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" className="h-4" alt="Visa" />
-                        <div className="font-black text-gray-500 text-xs flex items-center gap-1 border border-gray-300 px-2 py-1 rounded-sm"><Lock className="w-3 h-3" /> iPay88</div>
+                    <div className="flex items-center justify-center gap-6 pt-4">
+                        <div className="font-black text-gray-500 text-xs flex items-center gap-1 border border-gray-300 px-3 py-1.5 rounded-lg">
+                            <Lock className="w-3 h-3" /> Secured by iPay88
+                        </div>
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" className="h-4 opacity-40" alt="Visa" />
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" className="h-6 opacity-40" alt="Mastercard" />
                     </div>
                 </div>
             </div>
@@ -469,7 +475,7 @@ export const SuccessView = ({ resetFlow }: { resetFlow: () => void }) => (
             <CheckCircle2 className="w-16 h-16" />
         </div>
         <div className="space-y-4">
-            <h2 className="text-5xl font-black text-gray-900 italic tracking-tight uppercase">Order Confirmed!</h2>
+            <h2 className="text-5xl font-black text-gray-900 italic tracking-tight uppercase">Payment Confirmed!</h2>
             <p className="text-xl text-gray-500 font-medium max-w-lg mx-auto leading-relaxed">Your custom masterpiece is being hand-crafted. We'll send a tracking link to your email as soon as it ships!</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-6 justify-center pt-4">
@@ -478,6 +484,28 @@ export const SuccessView = ({ resetFlow }: { resetFlow: () => void }) => (
             </button>
             <button onClick={() => window.print()} className="px-10 py-5 bg-white text-gray-700 border border-gray-200 rounded-2xl font-black text-lg shadow-sm hover:bg-gray-50 transition-colors">
                 Download Receipt
+            </button>
+        </div>
+    </div>
+);
+
+export const PaymentFailedView = ({ error, onRetry, resetFlow }: { error: string | null; onRetry: () => void; resetFlow: () => void }) => (
+    <div className="max-w-2xl mx-auto px-6 py-24 text-center space-y-10">
+        <div className="w-32 h-32 bg-red-100 text-red-500 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-xl shadow-red-100">
+            <Info className="w-16 h-16" />
+        </div>
+        <div className="space-y-4">
+            <h2 className="text-4xl font-black text-gray-900 tracking-tight">Payment Not Completed</h2>
+            <p className="text-lg text-gray-500 font-medium max-w-lg mx-auto leading-relaxed">
+                {error || 'Your payment was not completed. No charges were made.'}
+            </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-6 justify-center pt-4">
+            <button onClick={onRetry} className="px-10 py-5 gradient-bg text-white rounded-2xl font-black text-lg shadow-2xl shadow-purple-200 flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all">
+                <RefreshCw className="w-5 h-5" /> Try Again
+            </button>
+            <button onClick={resetFlow} className="px-10 py-5 bg-white text-gray-700 border border-gray-200 rounded-2xl font-black text-lg shadow-sm hover:bg-gray-50 transition-colors">
+                Start Over
             </button>
         </div>
     </div>
