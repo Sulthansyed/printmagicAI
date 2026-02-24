@@ -293,10 +293,10 @@ export default function App() {
             orderId,
             amount: order.totalPrice.toString(),
             currency: 'MYR',
-            prodDesc: `${order.product?.name || 'PrintMagic AI Merch'} — ${order.template?.name || 'Custom Design'}`,
+            prodDesc: `${order.product?.name || 'PrintMagic AI Merch'} - ${order.template?.name || 'Custom Design'}`,
             userName: shippingInfo.name,
             userEmail: shippingInfo.email,
-            userContact: shippingInfo.phone,
+            userContact: shippingInfo.phone.replace(/[^0-9]/g, ''), // digits only for iPay88
             remark: `Ship to: ${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.postcode}`
           })
         });

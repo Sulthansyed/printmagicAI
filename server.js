@@ -26,10 +26,13 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // --- iPay88 Helper: Generate SHA256 Signature ---
 function generateIPay88Signature(merchantKey, merchantCode, refNo, amount, currency) {
-    // iPay88 format: SHA256(MerchantKey + MerchantCode + RefNo + Amount_no_dots + Currency)
+    // iPay88 format: SHA256(||MerchantKey||MerchantCode||RefNo||Amount_no_dots||Currency||)
     const amountForHash = parseFloat(amount).toFixed(2).replace('.', '');
-    const source = merchantKey + merchantCode + refNo + amountForHash + currency;
-    return crypto.createHash('sha256').update(source).digest('base64');
+    const source = `||${merchantKey}||${merchantCode}||${refNo}||${amountForHash}||${currency}||`;
+    console.log('[iPay88 Signature] Source string:', source);
+    const signature = crypto.createHash('sha256').update(source).digest('base64');
+    console.log('[iPay88 Signature] Generated:', signature);
+    return signature;
 }
 
 // --- iPay88: Initiate Payment ---
