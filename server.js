@@ -24,14 +24,15 @@ app.use(express.urlencoded({ extended: true })); // iPay88 POSTs as form-encoded
 // Securely initialized on server side
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// --- iPay88 Helper: Generate SHA256 Signature ---
+// --- iPay88 Helper: Generate HMAC-SHA512 Signature ---
+// iPay88 Malaysia requires HMAC-SHA512 since Jan 31, 2025
 function generateIPay88Signature(merchantKey, merchantCode, refNo, amount, currency) {
-    // iPay88 format: SHA256(||MerchantKey||MerchantCode||RefNo||Amount_no_dots||Currency||)
     const amountForHash = parseFloat(amount).toFixed(2).replace('.', '');
     const source = `||${merchantKey}||${merchantCode}||${refNo}||${amountForHash}||${currency}||`;
     console.log('[iPay88 Signature] Source string:', source);
-    const signature = crypto.createHash('sha256').update(source).digest('base64');
-    console.log('[iPay88 Signature] Generated:', signature);
+    // HMAC-SHA512 with MerchantKey as the secret
+    const signature = crypto.createHmac('sha512', merchantKey).update(source).digest('base64');
+    console.log('[iPay88 Signature] HMAC-SHA512:', signature);
     return signature;
 }
 
@@ -72,7 +73,7 @@ app.post('/api/ipay88-initiate', (req, res) => {
             UserContact: userContact || '',
             Remark: remark,
             Lang: 'UTF-8',
-            SignatureType: 'SHA256',
+            SignatureType: 'SHA512',
             Signature: signature,
             ResponseURL: `${baseUrl}/api/ipay88-response`,
             BackendURL: `${baseUrl}/api/ipay88-backend`,
