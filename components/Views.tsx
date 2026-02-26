@@ -17,7 +17,8 @@ export const Header = ({ resetFlow, credits, setCredits, orderPlaced }: { resetF
                     <div className="bg-purple-50 px-3 py-1 rounded-full text-purple-700 text-sm font-semibold border border-purple-100 shadow-sm">
                         {credits} Credits
                     </div>
-                    {isLocalhost && (
+                    {/* Show DEV button always during testing — remove when going live */}
+                    {true && (
                         <button
                             onClick={() => setCredits(99)}
                             className="text-[10px] bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-1 rounded-md font-black uppercase tracking-widest transition-colors shadow-sm active:scale-95"
