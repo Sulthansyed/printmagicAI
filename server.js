@@ -25,14 +25,16 @@ app.use(express.urlencoded({ extended: true })); // iPay88 POSTs as form-encoded
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // --- iPay88 Helper: Generate HMAC-SHA512 Signature ---
-// iPay88 Malaysia requires HMAC-SHA512 since Jan 31, 2025
+// Per official iPay88 Technical API v1.6.4.4 spec (Sep 2024)
+// Source: MerchantKey + MerchantCode + RefNo + Amount(no dots) + Currency
+// HMAC key: MerchantKey
+// Output: lowercase hex (128 chars)
 function generateIPay88Signature(merchantKey, merchantCode, refNo, amount, currency) {
     const amountForHash = parseFloat(amount).toFixed(2).replace('.', '');
-    const source = `||${merchantKey}||${merchantCode}||${refNo}||${amountForHash}||${currency}||`;
+    const source = merchantKey + merchantCode + refNo + amountForHash + currency;
     console.log('[iPay88 Signature] Source string:', source);
-    // HMAC-SHA512 with MerchantKey as the secret
-    const signature = crypto.createHmac('sha512', merchantKey).update(source).digest('base64');
-    console.log('[iPay88 Signature] HMAC-SHA512:', signature);
+    const signature = crypto.createHmac('sha512', merchantKey).update(source).digest('hex');
+    console.log('[iPay88 Signature] HMAC-SHA512 (hex):', signature);
     return signature;
 }
 
@@ -73,7 +75,7 @@ app.post('/api/ipay88-initiate', (req, res) => {
             UserContact: userContact || '',
             Remark: remark,
             Lang: 'UTF-8',
-            SignatureType: 'SHA512',
+            SignatureType: 'HMACSHA512',
             Signature: signature,
             ResponseURL: `${baseUrl}/api/ipay88-response`,
             BackendURL: `${baseUrl}/api/ipay88-backend`,
