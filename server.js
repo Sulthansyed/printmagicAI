@@ -38,6 +38,47 @@ function generateIPay88Signature(merchantKey, merchantCode, refNo, amount, curre
     return signature;
 }
 
+// --- iPay88 Diagnostic Test Page ---
+// Visit /test-ipay88 on Railway to test payment form submission directly
+app.get('/test-ipay88', (req, res) => {
+    const merchantCode = process.env.IPAY88_MERCHANT_CODE;
+    const merchantKey = process.env.IPAY88_MERCHANT_KEY;
+    if (!merchantCode || !merchantKey) return res.send('iPay88 credentials not configured');
+
+    const refNo = 'TEST' + Date.now();
+    const amount = '1.00';
+    const sig = generateIPay88Signature(merchantKey, merchantCode, refNo, amount, 'MYR');
+
+    res.send(`
+    <!DOCTYPE html><html><head><title>iPay88 Test</title></head><body>
+    <h2>iPay88 Direct Test</h2>
+    <p><b>MerchantCode:</b> ${merchantCode}</p>
+    <p><b>RefNo:</b> ${refNo}</p>
+    <p><b>Amount:</b> ${amount}</p>
+    <p><b>Signature (128 hex):</b> ${sig}</p>
+    <p><b>SignatureType:</b> HMACSHA512</p>
+    <form method="POST" action="https://payment.ipay88.com.my/epayment/payment.asp">
+      <input type="hidden" name="MerchantCode" value="${merchantCode}" />
+      <input type="hidden" name="PaymentId" value="" />
+      <input type="hidden" name="RefNo" value="${refNo}" />
+      <input type="hidden" name="Amount" value="${amount}" />
+      <input type="hidden" name="Currency" value="MYR" />
+      <input type="hidden" name="ProdDesc" value="Test Product" />
+      <input type="hidden" name="UserName" value="Test User" />
+      <input type="hidden" name="UserEmail" value="sulthanibrahim90@gmail.com" />
+      <input type="hidden" name="UserContact" value="60183731743" />
+      <input type="hidden" name="Remark" value="" />
+      <input type="hidden" name="Lang" value="UTF-8" />
+      <input type="hidden" name="SignatureType" value="HMACSHA512" />
+      <input type="hidden" name="Signature" value="${sig}" />
+      <input type="hidden" name="ResponseURL" value="https://printmagicai.up.railway.app/api/ipay88-response" />
+      <input type="hidden" name="BackendURL" value="https://printmagicai.up.railway.app/api/ipay88-backend" />
+      <br/><button type="submit" style="font-size:20px;padding:15px 40px;cursor:pointer;background:#4CAF50;color:white;border:none;border-radius:8px;">Submit to iPay88</button>
+    </form>
+    </body></html>
+    `);
+});
+
 // --- iPay88: Initiate Payment ---
 // Returns the full form payload for the frontend to auto-submit to iPay88
 app.post('/api/ipay88-initiate', (req, res) => {

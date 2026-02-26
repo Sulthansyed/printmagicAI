@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head><title>iPay88 Test</title></head>
+<body>
+<h2>iPay88 Payment Test</h2>
+<p>RefNo: TEST1772119822862</p>
+<p>Amount: 1.00</p>
+<p>Signature: 8967846350b68c62ec6da67518cfe52f51f66735f3e513ce870c0f242bd74b3baca05da4e2b91dc15ea5e98b75f1b223d5a512463e8c1ffff59a83a9e7177264</p>
+<p>This form will auto-submit in 3 seconds...</p>
+
+<form id="ipay88form" method="POST" action="https://payment.ipay88.com.my/epayment/payment.asp">
+  <input type="hidden" name="MerchantCode" value="M45082" />
+  <input type="hidden" name="PaymentId" value="" />
+  <input type="hidden" name="RefNo" value="TEST1772119822862" />
+  <input type="hidden" name="Amount" value="1.00" />
+  <input type="hidden" name="Currency" value="MYR" />
+  <input type="hidden" name="ProdDesc" value="Test Product" />
+  <input type="hidden" name="UserName" value="Test User" />
+  <input type="hidden" name="UserEmail" value="sulthanibrahim90@gmail.com" />
+  <input type="hidden" name="UserContact" value="60183731743" />
+  <input type="hidden" name="Remark" value="" />
+  <input type="hidden" name="Lang" value="UTF-8" />
+  <input type="hidden" name="SignatureType" value="HMACSHA512" />
+  <input type="hidden" name="Signature" value="8967846350b68c62ec6da67518cfe52f51f66735f3e513ce870c0f242bd74b3baca05da4e2b91dc15ea5e98b75f1b223d5a512463e8c1ffff59a83a9e7177264" />
+  <input type="hidden" name="ResponseURL" value="https://printmagicai.up.railway.app/api/ipay88-response" />
+  <input type="hidden" name="BackendURL" value="https://printmagicai.up.railway.app/api/ipay88-backend" />
+  <br/>
+  <button type="submit" style="font-size: 20px; padding: 10px 30px; cursor: pointer;">Submit to iPay88</button>
+</form>
+
+<!-- Don't auto-submit, let user click to test manually -->
+</body>
+</html>
