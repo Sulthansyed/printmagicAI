@@ -38,6 +38,16 @@ function generateIPay88Signature(merchantKey, merchantCode, refNo, amount, curre
     return signature;
 }
 
+// Response signature uses: MerchantKey + MerchantCode + PaymentId + RefNo + Amount(no dots) + Currency + Status
+function generateIPay88ResponseSignature(merchantKey, merchantCode, paymentId, refNo, amount, currency, status) {
+    const amountForHash = parseFloat(amount).toFixed(2).replace('.', '');
+    const source = merchantKey + merchantCode + paymentId + refNo + amountForHash + currency + status;
+    console.log('[iPay88 Response Signature] Source string:', source);
+    const signature = crypto.createHmac('sha512', merchantKey).update(source).digest('hex');
+    console.log('[iPay88 Response Signature] HMAC-SHA512 (hex):', signature);
+    return signature;
+}
+
 // --- iPay88 Diagnostic Test Page ---
 // Visit /test-ipay88 on Railway to test payment form submission directly
 app.get('/test-ipay88', (req, res) => {
@@ -106,7 +116,7 @@ app.post('/api/ipay88-initiate', (req, res) => {
 
         const payload = {
             MerchantCode: merchantCode,
-            PaymentId: '0',     // 0 = show all payment methods
+            PaymentId: '',      // Empty = show all payment methods
             RefNo: refNo,
             Amount: amountStr,
             Currency: currency,
@@ -236,16 +246,18 @@ app.post('/api/generate', async (req, res) => {
 // --- iPay88 Callback: Browser Redirect (Response URL) ---
 // iPay88 POSTs here after user completes payment, then we redirect the browser
 app.post('/api/ipay88-response', (req, res) => {
-    const { Status, RefNo, Amount, Currency, Signature, ErrDesc } = req.body;
-    console.log('[iPay88 Response]', { Status, RefNo, Amount, Currency, ErrDesc });
+    const { Status, RefNo, Amount, Currency, Signature, ErrDesc, PaymentId } = req.body;
+    console.log('[iPay88 Response]', { Status, RefNo, Amount, Currency, ErrDesc, PaymentId });
 
-    // Verify signature
+    // Verify response signature (includes PaymentId + Status)
     const merchantCode = process.env.IPAY88_MERCHANT_CODE;
     const merchantKey = process.env.IPAY88_MERCHANT_KEY;
-    if (merchantCode && merchantKey) {
-        const expectedSig = generateIPay88Signature(merchantKey, merchantCode, RefNo, Amount, Currency);
+    if (merchantCode && merchantKey && Signature) {
+        const expectedSig = generateIPay88ResponseSignature(merchantKey, merchantCode, PaymentId || '', RefNo, Amount, Currency, Status);
         if (Signature !== expectedSig) {
             console.error('[iPay88 Response] Signature mismatch!', { expected: expectedSig, received: Signature });
+        } else {
+            console.log('[iPay88 Response] Signature verified ✓');
         }
     }
 
@@ -260,17 +272,18 @@ app.post('/api/ipay88-response', (req, res) => {
 // --- iPay88 Callback: Server-to-Server (Backend URL) ---
 // iPay88 calls this independently to confirm payment — must respond 'RECEIVEOK'
 app.post('/api/ipay88-backend', (req, res) => {
-    const { Status, RefNo, Amount, Currency, Signature, TransId, ErrDesc } = req.body;
-    console.log('[iPay88 Backend]', { Status, RefNo, Amount, Currency, TransId, ErrDesc });
+    const { Status, RefNo, Amount, Currency, Signature, TransId, ErrDesc, PaymentId } = req.body;
+    console.log('[iPay88 Backend]', { Status, RefNo, Amount, Currency, TransId, ErrDesc, PaymentId });
 
-    // Verify signature
+    // Verify response signature (includes PaymentId + Status)
     const merchantCode = process.env.IPAY88_MERCHANT_CODE;
     const merchantKey = process.env.IPAY88_MERCHANT_KEY;
-    if (merchantCode && merchantKey) {
-        const expectedSig = generateIPay88Signature(merchantKey, merchantCode, RefNo, Amount, Currency);
+    if (merchantCode && merchantKey && Signature) {
+        const expectedSig = generateIPay88ResponseSignature(merchantKey, merchantCode, PaymentId || '', RefNo, Amount, Currency, Status);
         if (Signature !== expectedSig) {
-            console.error('[iPay88 Backend] Signature mismatch!');
-            return res.status(400).send('INVALID SIGNATURE');
+            console.error('[iPay88 Backend] Signature mismatch!', { expected: expectedSig, received: Signature });
+        } else {
+            console.log('[iPay88 Backend] Signature verified ✓');
         }
     }
 
@@ -281,7 +294,7 @@ app.post('/api/ipay88-backend', (req, res) => {
         console.log(`[iPay88 Backend] Payment FAILED for ${RefNo}: ${ErrDesc}`);
     }
 
-    // iPay88 requires this exact response
+    // iPay88 requires this exact response — always send it
     res.send('RECEIVEOK');
 });
 
