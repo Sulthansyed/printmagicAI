@@ -45,7 +45,7 @@ const html = `<!DOCTYPE html>
 <p>Signature: ${signature}</p>
 <p>This form will auto-submit in 3 seconds...</p>
 
-<form id="ipay88form" method="POST" action="https://payment.ipay88.com.my/epayment/payment.asp">
+<form id="ipay88form" method="POST" action="https://payment.ipay88.com.my/epayment/entry.asp">
   <input type="hidden" name="MerchantCode" value="${MERCHANT_CODE}" />
   <input type="hidden" name="PaymentId" value="" />
   <input type="hidden" name="RefNo" value="${REF_NO}" />

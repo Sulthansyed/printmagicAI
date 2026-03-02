@@ -57,7 +57,7 @@ app.get('/test-ipay88', (req, res) => {
     <p><b>Amount:</b> ${amount}</p>
     <p><b>Signature (128 hex):</b> ${sig}</p>
     <p><b>SignatureType:</b> HMACSHA512</p>
-    <form method="POST" action="https://payment.ipay88.com.my/epayment/payment.asp">
+    <form method="POST" action="https://payment.ipay88.com.my/epayment/entry.asp">
       <input type="hidden" name="MerchantCode" value="${merchantCode}" />
       <input type="hidden" name="PaymentId" value="" />
       <input type="hidden" name="RefNo" value="${refNo}" />
@@ -123,7 +123,7 @@ app.post('/api/ipay88-initiate', (req, res) => {
         };
 
         console.log('[iPay88 Initiate] Full payload:', JSON.stringify(payload, null, 2));
-        res.json({ payload, paymentUrl: 'https://payment.ipay88.com.my/epayment/payment.asp' });
+        res.json({ payload, paymentUrl: 'https://payment.ipay88.com.my/epayment/entry.asp' });
     } catch (error) {
         console.error('iPay88 Initiation Error:', error);
         res.status(500).json({ error: 'Failed to initiate payment.' });
