@@ -24,6 +24,29 @@ app.use(express.urlencoded({ extended: true })); // iPay88 POSTs as form-encoded
 // Securely initialized on server side
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+// --- In-memory store for pending orders (keyed by RefNo) ---
+// Stores customer details at initiation, retrieved on payment confirmation
+const pendingOrders = new Map();
+
+// --- Google Sheets: Log order via Apps Script webhook ---
+async function logOrderToSheet(orderData) {
+    const webhookUrl = process.env.GOOGLE_SHEET_WEBHOOK;
+    if (!webhookUrl) {
+        console.log('[Google Sheets] GOOGLE_SHEET_WEBHOOK not configured, skipping');
+        return;
+    }
+    try {
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData),
+        });
+        console.log('[Google Sheets] Order logged, status:', response.status);
+    } catch (error) {
+        console.error('[Google Sheets] Failed to log order:', error.message);
+    }
+}
+
 // --- iPay88 Helper: Generate HMAC-SHA512 Signature ---
 // Per official iPay88 Technical API v1.6.4.4 spec (Sep 2024)
 // Source: MerchantKey + MerchantCode + RefNo + Amount(no dots) + Currency
@@ -131,6 +154,17 @@ app.post('/api/ipay88-initiate', (req, res) => {
             ResponseURL: `${baseUrl}/api/ipay88-response`,
             BackendURL: `${baseUrl}/api/ipay88-backend`,
         };
+
+        // Store order details for later retrieval on payment confirmation
+        pendingOrders.set(refNo, {
+            customerName: userName || '',
+            email: userEmail || '',
+            phone: userContact || '',
+            product: prodDesc || 'PrintMagic AI Merchandise',
+            shippingAddress: remark || '',
+        });
+        // Auto-cleanup after 1 hour to prevent memory leaks
+        setTimeout(() => pendingOrders.delete(refNo), 60 * 60 * 1000);
 
         console.log('[iPay88 Initiate] Full payload:', JSON.stringify(payload, null, 2));
         res.json({ payload, paymentUrl: 'https://payment.ipay88.com.my/epayment/entry.asp' });
@@ -289,7 +323,24 @@ app.post('/api/ipay88-backend', (req, res) => {
 
     if (Status === '1') {
         console.log(`[iPay88 Backend] Payment CONFIRMED for ${RefNo}, TransId: ${TransId}`);
-        // TODO: Update order status in database when DB is added
+        
+        // Log to Google Sheets
+        const orderDetails = pendingOrders.get(RefNo) || {};
+        logOrderToSheet({
+            date: new Date().toISOString(),
+            refNo: RefNo,
+            transId: TransId || '',
+            amount: Amount,
+            currency: Currency,
+            status: 'SUCCESS',
+            customerName: orderDetails.customerName || '',
+            email: orderDetails.email || '',
+            phone: orderDetails.phone || '',
+            product: orderDetails.product || '',
+            shippingAddress: orderDetails.shippingAddress || '',
+            paymentMethod: PaymentId || '',
+        });
+        pendingOrders.delete(RefNo);  // Clean up
     } else {
         console.log(`[iPay88 Backend] Payment FAILED for ${RefNo}: ${ErrDesc}`);
     }
