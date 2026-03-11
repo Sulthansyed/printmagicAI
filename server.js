@@ -36,12 +36,21 @@ async function logOrderToSheet(orderData) {
         return;
     }
     try {
+        // Google Apps Script processes the POST, then returns 302 redirect.
+        // redirect: 'manual' prevents fetch from following the redirect (which would 403).
+        // Status 302 = data was processed successfully.
         const response = await fetch(webhookUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'text/plain' },
             body: JSON.stringify(orderData),
+            redirect: 'manual',
         });
-        console.log('[Google Sheets] Order logged, status:', response.status);
+        const status = response.status;
+        if (status === 200 || status === 302) {
+            console.log('[Google Sheets] Order logged successfully (status:', status + ')');
+        } else {
+            console.error('[Google Sheets] Unexpected status:', status);
+        }
     } catch (error) {
         console.error('[Google Sheets] Failed to log order:', error.message);
     }
