@@ -28,31 +28,45 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // Stores customer details at initiation, retrieved on payment confirmation
 const pendingOrders = new Map();
 
-// --- Google Sheets: Log order via Apps Script webhook ---
-async function logOrderToSheet(orderData) {
-    const webhookUrl = process.env.GOOGLE_SHEET_WEBHOOK;
-    if (!webhookUrl) {
-        console.log('[Google Sheets] GOOGLE_SHEET_WEBHOOK not configured, skipping');
+// --- Supabase: Log order to database ---
+async function logOrderToSupabase(orderData) {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+        console.log('[Supabase] SUPABASE_URL or SUPABASE_KEY not configured, skipping');
         return;
     }
     try {
-        // Google Apps Script processes the POST, then returns 302 redirect.
-        // redirect: 'manual' prevents fetch from following the redirect (which would 403).
-        // Status 302 = data was processed successfully.
-        const response = await fetch(webhookUrl, {
+        const response = await fetch(`${supabaseUrl}/rest/v1/orders`, {
             method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify(orderData),
-            redirect: 'manual',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({
+                ref_no: orderData.refNo,
+                trans_id: orderData.transId,
+                amount: parseFloat(orderData.amount),
+                currency: orderData.currency,
+                status: orderData.status,
+                customer_name: orderData.customerName,
+                email: orderData.email,
+                phone: orderData.phone,
+                product: orderData.product,
+                shipping_address: orderData.shippingAddress,
+                payment_method: orderData.paymentMethod,
+            }),
         });
-        const status = response.status;
-        if (status === 200 || status === 302) {
-            console.log('[Google Sheets] Order logged successfully (status:', status + ')');
+        if (response.ok) {
+            console.log('[Supabase] Order logged successfully');
         } else {
-            console.error('[Google Sheets] Unexpected status:', status);
+            const err = await response.text();
+            console.error('[Supabase] Failed:', response.status, err);
         }
     } catch (error) {
-        console.error('[Google Sheets] Failed to log order:', error.message);
+        console.error('[Supabase] Error:', error.message);
     }
 }
 
@@ -333,9 +347,9 @@ app.post('/api/ipay88-backend', (req, res) => {
     if (Status === '1') {
         console.log(`[iPay88 Backend] Payment CONFIRMED for ${RefNo}, TransId: ${TransId}`);
         
-        // Log to Google Sheets
+        // Log to Supabase
         const orderDetails = pendingOrders.get(RefNo) || {};
-        logOrderToSheet({
+        logOrderToSupabase({
             date: new Date().toISOString(),
             refNo: RefNo,
             transId: TransId || '',
