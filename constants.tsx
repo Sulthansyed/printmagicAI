@@ -230,49 +230,62 @@ export const PRODUCTS: Product[] = [
     id: 'p1',
     name: 'Premium T-Shirt',
     price: 1.00, // TODO: restore to 59.90 after testing
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=1000',
+    image: '/products/tshirt.png',
     overlayConfig: {
-      top: '25%',
-      left: '32%',
-      width: '36%',
-      height: '42%'
+      top: '30%',
+      left: '30%',
+      width: '40%',
+      height: '35%'
     }
   },
   {
     id: 'p2',
     name: 'Ceramic Mug',
     price: 1.00, // TODO: restore to 29.90 after testing
-    image: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&q=80&w=1000',
+    image: '/products/mug.png',
     overlayConfig: {
-      top: '35%',
-      left: '35%',
-      width: '30%',
-      height: '40%',
-      rotate: '0deg'
+      top: '18%',
+      left: '12%',
+      width: '48%',
+      height: '55%'
     }
   },
   {
     id: 'p3',
     name: 'Phone Case',
     price: 1.00, // TODO: restore to 39.90 after testing
-    image: 'https://images.unsplash.com/photo-1601593346740-925612772716?auto=format&fit=crop&q=80&w=1000',
+    image: '/products/phone_case.png',
     overlayConfig: {
-      top: '25%',
-      left: '35%',
-      width: '30%',
-      height: '55%'
+      top: '28%',
+      left: '28%',
+      width: '42%',
+      height: '52%'
     }
   },
   {
     id: 'p4',
     name: 'Wall Canvas',
     price: 1.00, // TODO: restore to 89.90 after testing
-    image: 'https://images.unsplash.com/photo-1581337204873-ef36aa186caa?auto=format&fit=crop&q=80&w=1000',
+    image: '/products/canvas.png',
     overlayConfig: {
-      top: '22%',
-      left: '30%',
+      top: '5%',
+      left: '8%',
+      width: '52%',
+      height: '68%'
+    }
+  },
+  {
+    id: 'p5',
+    name: 'Tumbler',
+    price: 1.00, // TODO: restore to 49.90 after testing
+    image: '/products/tumbler.png',
+    overlayConfig: {
+      top: '20%',
+      left: '15%',
       width: '40%',
-      height: '55%'
+      height: '35%'
     }
   }
 ];
+
+
